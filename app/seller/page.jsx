@@ -10,7 +10,7 @@ import { Plus, Loader, AlertCircle, Edit, Trash2 } from 'lucide-react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import AuroraBackground from '@/components/AuroraBackground';
-import AddProductModal from '@/components/seller/AddProductModal';
+import AddProductModal from '@/components/seller/AddProductModal'; // This will now handle both Add and Edit
 
 export default function SellerPage() {
     const { data: session, status } = useSession();
@@ -18,6 +18,7 @@ export default function SellerPage() {
     const [products, setProducts] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [editingProduct, setEditingProduct] = useState(null); // State to hold the product being edited
 
     useEffect(() => {
         if (status === 'authenticated') {
@@ -39,8 +40,36 @@ export default function SellerPage() {
         }
     }, [session, status, router]);
 
+    const handleOpenAddModal = () => {
+        setEditingProduct(null); // Ensure we're not editing
+        setIsModalOpen(true);
+    };
+
+    const handleOpenEditModal = (product) => {
+        setEditingProduct(product); // Set the product to edit
+        setIsModalOpen(true);
+    };
+
     const handleProductAdded = (newProduct) => {
         setProducts(prev => [newProduct, ...prev]);
+    };
+
+    const handleProductUpdated = (updatedProduct) => {
+        setProducts(prev => prev.map(p => p._id === updatedProduct._id ? updatedProduct : p));
+    };
+
+    const handleDeleteProduct = async (productId) => {
+        if (!confirm('Are you sure you want to delete this product?')) {
+            return;
+        }
+        try {
+            const res = await fetch(`/api/products/${productId}`, { method: 'DELETE' });
+            if (!res.ok) throw new Error('Failed to delete product.');
+            setProducts(prev => prev.filter(p => p._id !== productId));
+        } catch (error) {
+            console.error(error);
+            alert('There was an issue deleting the product.');
+        }
     };
 
     if (status === 'loading' || isLoading) {
@@ -65,14 +94,8 @@ export default function SellerPage() {
                 <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12">
                     <div className="flex justify-between items-center mb-8">
                         <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Seller Dashboard</h1>
-                        <motion.button
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            onClick={() => setIsModalOpen(true)}
-                            className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-indigo-700"
-                        >
-                            <Plus size={16} />
-                            Add New Product
+                        <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={handleOpenAddModal} className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-indigo-700">
+                            <Plus size={16} /> Add New Product
                         </motion.button>
                     </div>
 
@@ -85,12 +108,10 @@ export default function SellerPage() {
                                         <img src={product.imageUrl} alt={product.name} className="h-48 w-full object-cover" />
                                         <div className="p-4 flex flex-col flex-grow">
                                             <h3 className="font-semibold text-slate-800 dark:text-slate-100">{product.name}</h3>
-                                            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 flex-grow">
-                                                ${product.price.toFixed(2)} - {product.stock} in stock
-                                            </p>
+                                            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 flex-grow">₹{product.price.toFixed(2)} - {product.stock} in stock</p>
                                             <div className="flex gap-2 mt-4 border-t border-slate-200 dark:border-slate-700 pt-3">
-                                                <button className="w-full text-sm font-medium text-indigo-600 hover:text-indigo-500 flex items-center justify-center gap-1 bg-indigo-100 dark:bg-indigo-900/50 py-1.5 rounded-md"><Edit size={14}/> Edit</button>
-                                                <button className="w-full text-sm font-medium text-red-600 hover:text-red-500 flex items-center justify-center gap-1 bg-red-100 dark:bg-red-900/50 py-1.5 rounded-md"><Trash2 size={14}/> Delete</button>
+                                                <button onClick={() => handleOpenEditModal(product)} className="w-full text-sm font-medium text-indigo-600 hover:text-indigo-500 flex items-center justify-center gap-1 bg-indigo-100 dark:bg-indigo-900/50 py-1.5 rounded-md"><Edit size={14}/> Edit</button>
+                                                <button onClick={() => handleDeleteProduct(product._id)} className="w-full text-sm font-medium text-red-600 hover:text-red-500 flex items-center justify-center gap-1 bg-red-100 dark:bg-red-900/50 py-1.5 rounded-md"><Trash2 size={14}/> Delete</button>
                                             </div>
                                         </div>
                                     </div>
@@ -99,7 +120,7 @@ export default function SellerPage() {
                         ) : (
                             <div className="text-center py-12">
                                <p className="text-slate-500">You haven't added any products yet.</p>
-                               <button onClick={() => setIsModalOpen(true)} className="mt-4 text-indigo-600 font-semibold">Add your first product</button>
+                               <button onClick={handleOpenAddModal} className="mt-4 text-indigo-600 font-semibold">Add your first product</button>
                             </div>
                         )}
                     </div>
@@ -109,7 +130,14 @@ export default function SellerPage() {
             <Footer />
 
             <AnimatePresence>
-                {isModalOpen && <AddProductModal onClose={() => setIsModalOpen(false)} onProductAdd={handleProductAdded} />}
+                {isModalOpen && (
+                    <AddProductModal 
+                        initialData={editingProduct}
+                        onClose={() => setIsModalOpen(false)} 
+                        onProductAdd={handleProductAdded}
+                        onProductUpdate={handleProductUpdated}
+                    />
+                )}
             </AnimatePresence>
         </div>
     );

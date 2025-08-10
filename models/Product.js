@@ -30,6 +30,12 @@ const ProductSchema = new mongoose.Schema({
     type: Number,
     default: 0,
   },
+  // --- This is the required field that was missing ---
+  seller: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true,
+  },
 }, { timestamps: true });
 
 export default mongoose.models.Product || mongoose.model('Product', ProductSchema);
